@@ -15,10 +15,10 @@ SourcePath#0=D:/GoogleDrive/Blog msalamon.pl/Materialy do wpisow/35. Wbudowany R
 HeaderFiles#3=D:/GoogleDrive/Blog msalamon.pl/Materialy do wpisow/35. Wbudowany RTC w STM32/Kod/RTC_F401/Core/Inc/stm32f4xx_it.h
 HeaderFiles#4=D:/GoogleDrive/Blog msalamon.pl/Materialy do wpisow/35. Wbudowany RTC w STM32/Kod/RTC_F401/Core/Inc/stm32f4xx_hal_conf.h
 HeaderFiles#5=D:/GoogleDrive/Blog msalamon.pl/Materialy do wpisow/35. Wbudowany RTC w STM32/Kod/RTC_F401/Core/Inc/main.h
-HeaderFiles=;
 SourceFiles#3=D:/GoogleDrive/Blog msalamon.pl/Materialy do wpisow/35. Wbudowany RTC w STM32/Kod/RTC_F401/Core/Src/stm32f4xx_it.c
 SourceFiles#4=D:/GoogleDrive/Blog msalamon.pl/Materialy do wpisow/35. Wbudowany RTC w STM32/Kod/RTC_F401/Core/Src/stm32f4xx_hal_msp.c
 SourceFiles#5=D:/GoogleDrive/Blog msalamon.pl/Materialy do wpisow/35. Wbudowany RTC w STM32/Kod/RTC_F401/Core/Src/main.c
+HeaderFiles=;
 SourceFiles=;
 
 [PreviousLibFiles]
