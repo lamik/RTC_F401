@@ -75,6 +75,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void SetRTC(void);
 void BackupDateToBR(void);
+void Enter_LowPowerMode(void);
 /* USER CODE END 0 */
 
 /**
@@ -119,22 +120,19 @@ int main(void)
   while (1)
   {
 	  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
-	  Milliseconds = ((RtcTime.SecondFraction-RtcTime.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
 	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
 
-	  if(Milliseconds != CompareMilliseconds)
-	  {
-		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds, Milliseconds);
-		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
-		  CompareMilliseconds = Milliseconds;
-	  }
+	  MessageLen = sprintf((char*)Message, "Ide spac o: %02d:%02d:%02d\n\r", RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds);
+	  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
 
-	  if(GPIO_PIN_RESET == HAL_GPIO_ReadPin(TEST_GPIO_Port, TEST_Pin))
-	  {
-		 while(GPIO_PIN_RESET == HAL_GPIO_ReadPin(TEST_GPIO_Port, TEST_Pin))
-		 {}
-		 SetRTC();
-	  }
+	  Enter_LowPowerMode();
+
+	  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
+	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
+
+	  MessageLen = sprintf((char*)Message, "Wstalem o: %02d:%02d:%02d\n\r", RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds);
+	  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -227,6 +225,44 @@ void SetRTC(void)
 	}
 
 	BackupDateToBR();
+}
+
+void Enter_LowPowerMode(void)
+{
+  /*## Enter STOP low power Mode ##########################################*/
+  /**
+  RTC Wakeup Interrupt Generation:
+  Wakeup Time Base = (RTC_WAKEUPCLOCK_RTCCLK_DIV /(LSE or LSI))
+  Wakeup Time = Wakeup Time Base * WakeUpCounter
+              = (RTC_WAKEUPCLOCK_RTCCLK_DIV /(LSE or LSI)) * WakeUpCounter
+  ==> WakeUpCounter = Wakeup Time / Wakeup Time Base
+
+  To configure the wake up timer to 5 s the WakeUpCounter is set to 0x2FA8:
+  RTC_WAKEUPCLOCK_RTCCLK_DIV = RTCCLK_Div16 = 16
+  Wakeup Time Base = 16 /(~32.000KHz) = ~0,5 ms
+  Wakeup Time = 5 s = 0,5ms  * WakeUpCounter
+  ==> WakeUpCounter = 5/0,5ms = 0x2710
+	**/
+  HAL_RTCEx_SetWakeUpTimer_IT(&hrtc, 0x2710, RTC_WAKEUPCLOCK_RTCCLK_DIV16);
+
+  HAL_SuspendTick();      			/* To Avoid timer wake-up. */
+
+  /**
+	In PWR_MAINREGULATOR_ON mode, we measure 13.8/15.2uA on JP6
+	**/
+  HAL_PWR_EnterSTOPMode(PWR_MAINREGULATOR_ON,PWR_STOPENTRY_WFI);
+
+  /**
+  In PWR_LOWPOWERREGULATOR_ON mode, we measure 1.3/2.7uA on JP6
+  HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON,PWR_STOPENTRY_WFI);
+	**/
+
+  /* We are now waiting for TAMPERF1 or WAKEUP interrupts (or Reset) */
+
+  HAL_ResumeTick();       /* Needed in case of Timer usage. */
+  HAL_RTCEx_DeactivateWakeUpTimer(&hrtc);
+
+  SystemClock_Config();   /* Re-configure the system clock */
 }
 /* USER CODE END 4 */
 
