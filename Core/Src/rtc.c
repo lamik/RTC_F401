@@ -21,7 +21,8 @@
 #include "rtc.h"
 
 /* USER CODE BEGIN 0 */
-
+extern RTC_DateTypeDef RtcDate;
+extern RTC_TimeTypeDef RtcTime;
 /* USER CODE END 0 */
 
 RTC_HandleTypeDef hrtc;
@@ -47,7 +48,9 @@ void MX_RTC_Init(void)
   }
 
   /* USER CODE BEGIN Check_RTC_BKUP */
-    return;
+  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
+  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
+  return;
   /* USER CODE END Check_RTC_BKUP */
 
   /** Initialize RTC and set the Time and Date 
