@@ -63,10 +63,13 @@ uint8_t CompareDate;
 
 uint8_t Message[64];
 uint8_t MessageLen;
+
+volatile uint8_t AlarmFlag;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -75,6 +78,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void SetRTC(void);
 void BackupDateToBR(void);
+void SetNextAlarm(void);
 /* USER CODE END 0 */
 
 /**
@@ -108,8 +112,11 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_RTC_Init();
-  /* USER CODE BEGIN 2 */
 
+  /* Initialize interrupts */
+  MX_NVIC_Init();
+  /* USER CODE BEGIN 2 */
+  SetNextAlarm();
   /* USER CODE END 2 */
  
  
@@ -127,6 +134,15 @@ int main(void)
 		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds, Milliseconds);
 		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
 		  CompareSeconds = RtcTime.Seconds;
+	  }
+
+	  if(AlarmFlag == 1)
+	  {
+		MessageLen = sprintf((char*)Message, "Budzik?! Ustawie drzemke za 5 sekund...\n\r");
+		HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+
+		SetNextAlarm();
+		AlarmFlag = 0;
 	  }
 
 	  if(GPIO_PIN_RESET == HAL_GPIO_ReadPin(TEST_GPIO_Port, TEST_Pin))
@@ -193,6 +209,17 @@ void SystemClock_Config(void)
   }
 }
 
+/**
+  * @brief NVIC Configuration.
+  * @retval None
+  */
+static void MX_NVIC_Init(void)
+{
+  /* RTC_Alarm_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(RTC_Alarm_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(RTC_Alarm_IRQn);
+}
+
 /* USER CODE BEGIN 4 */
 void BackupDateToBR(void)
 {
@@ -227,6 +254,35 @@ void SetRTC(void)
 	}
 
 	BackupDateToBR();
+}
+
+void SetNextAlarm(void)
+{
+	RTC_AlarmTypeDef sAlarm = {0};
+
+	/** Enable the Alarm A
+	 * WARNING: It doesn't work if hour changes and further.
+	*/
+	sAlarm.AlarmTime.Hours = RtcTime.Hours;
+	sAlarm.AlarmTime.Minutes = RtcTime.Minutes + ((RtcTime.Seconds + 5) / 60);
+	sAlarm.AlarmTime.Seconds = (RtcTime.Seconds + 5) % 60;
+	sAlarm.AlarmTime.SubSeconds = 0;
+	sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+	sAlarm.AlarmTime.StoreOperation = RTC_STOREOPERATION_RESET;
+	sAlarm.AlarmMask = RTC_ALARMMASK_NONE;
+	sAlarm.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
+	sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
+	sAlarm.AlarmDateWeekDay = RtcDate.Date;
+	sAlarm.Alarm = RTC_ALARM_A;
+	if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BIN) != HAL_OK)
+	{
+		Error_Handler();
+	}
+}
+
+void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc)
+{
+	AlarmFlag = 1;
 }
 /* USER CODE END 4 */
 
