@@ -48,8 +48,9 @@
 /* USER CODE BEGIN PV */
 RTC_TimeTypeDef RtcTime;
 RTC_DateTypeDef RtcDate;
+uint16_t Milliseconds;
 
-uint8_t CompareSeconds;
+uint8_t CompareMilliseconds;
 uint8_t CompareDate;
 
 uint8_t Message[64];
@@ -110,18 +111,14 @@ int main(void)
   while (1)
   {
 	  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
+	  Milliseconds = ((RtcTime.SecondFraction-RtcTime.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
 	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
 
-	  if(RtcTime.Seconds != CompareSeconds)
+	  if(Milliseconds != CompareMilliseconds)
 	  {
-		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds);
+		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds, Milliseconds);
 		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
-		  CompareSeconds = RtcTime.Seconds;
-	  }
-	  if(RtcDate.Date != CompareDate)
-	  {
-		  BackupDateToBR();
-		  CompareDate = RtcDate.Date;
+		  CompareMilliseconds = Milliseconds;
 	  }
 
 	  if(GPIO_PIN_RESET == HAL_GPIO_ReadPin(TEST_GPIO_Port, TEST_Pin))
