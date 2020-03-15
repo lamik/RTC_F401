@@ -44,6 +44,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define BACKUP_COUNT 20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -63,6 +64,20 @@ uint8_t CompareDate;
 
 uint8_t Message[64];
 uint8_t MessageLen;
+
+volatile uint8_t TamperFlag;
+
+/* Backup registers table */
+uint32_t aBKPDataReg[BACKUP_COUNT] =
+{
+  RTC_BKP_DR0,  RTC_BKP_DR1,  RTC_BKP_DR2,
+  RTC_BKP_DR3,  RTC_BKP_DR4,  RTC_BKP_DR5,
+  RTC_BKP_DR6,  RTC_BKP_DR7,  RTC_BKP_DR8,
+  RTC_BKP_DR9,  RTC_BKP_DR10, RTC_BKP_DR11,
+  RTC_BKP_DR12, RTC_BKP_DR13, RTC_BKP_DR14,
+  RTC_BKP_DR15, RTC_BKP_DR16, RTC_BKP_DR17,
+  RTC_BKP_DR18, RTC_BKP_DR19
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -75,6 +90,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void SetRTC(void);
 void BackupDateToBR(void);
+void RTC_TamperSet(void);
 /* USER CODE END 0 */
 
 /**
@@ -109,7 +125,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
-
+  RTC_TamperSet();
   /* USER CODE END 2 */
  
  
@@ -118,15 +134,48 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
-	  Milliseconds = ((RtcTime.SecondFraction-RtcTime.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
-	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
+//	  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
+//	  Milliseconds = ((RtcTime.SecondFraction-RtcTime.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
+//	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
 
-	  if(Milliseconds != CompareMilliseconds)
+//	  if(Milliseconds != CompareMilliseconds)
+//	  {
+//		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds, Milliseconds);
+//		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+//		  CompareMilliseconds = Milliseconds;
+//	  }
+
+	  if(TamperFlag == 1)
 	  {
-		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds, Milliseconds);
+		  MessageLen = sprintf((char*)Message, "Tamper detected! Backup Registers cleared:\n\r");
 		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
-		  CompareMilliseconds = Milliseconds;
+
+		  for(int i = 0; i < BACKUP_COUNT; i++)
+		  {
+			  uint32_t tmp = HAL_RTCEx_BKUPRead(&hrtc, aBKPDataReg[i]);
+			  MessageLen = sprintf((char*)Message, "%X, ", tmp);
+			  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+		  }
+
+		  MessageLen = sprintf((char*)Message, "\n\r");
+		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+
+		  MessageLen = sprintf((char*)Message, "Write example data to regs:\n\r");
+		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+
+		  for(int i = 0; i < BACKUP_COUNT; i++)
+		  {
+			  HAL_RTCEx_BKUPWrite(&hrtc, aBKPDataReg[i], (i * 32));
+			  uint32_t tmp = HAL_RTCEx_BKUPRead(&hrtc, aBKPDataReg[i]);
+			  MessageLen = sprintf((char*)Message, "%X, ", tmp);
+			  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+		  }
+
+		  MessageLen = sprintf((char*)Message, "\n\rWait for Tamper\n\r\n\r");
+		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+
+		  RTC_TamperSet();
+		  TamperFlag = 0;
 	  }
 
 	  if(GPIO_PIN_RESET == HAL_GPIO_ReadPin(TEST_GPIO_Port, TEST_Pin))
@@ -227,6 +276,37 @@ void SetRTC(void)
 	}
 
 	BackupDateToBR();
+}
+
+void RTC_TamperSet(void)
+{
+	RTC_TamperTypeDef sTamper;
+
+	/** Enable the RTC Tamper 1
+	*/
+	sTamper.Tamper = RTC_TAMPER_1;
+	sTamper.PinSelection = RTC_TAMPERPIN_DEFAULT;
+	sTamper.Trigger = RTC_TAMPERTRIGGER_FALLINGEDGE;
+	sTamper.Filter = RTC_TAMPERFILTER_DISABLE;
+	sTamper.SamplingFrequency = RTC_TAMPERSAMPLINGFREQ_RTCCLK_DIV32768;
+	sTamper.PrechargeDuration = RTC_TAMPERPRECHARGEDURATION_1RTCCLK;
+	sTamper.TamperPullUp = RTC_TAMPER_PULLUP_DISABLE;
+	sTamper.TimeStampOnTamperDetection = RTC_TIMESTAMPONTAMPERDETECTION_ENABLE;
+	if (HAL_RTCEx_SetTamper_IT(&hrtc, &sTamper) != HAL_OK)
+	{
+	  Error_Handler();
+	}
+	  /* Clear the Tamper interrupt pending bit */
+	  __HAL_RTC_TAMPER_CLEAR_FLAG(&hrtc,RTC_FLAG_TAMP1F);
+}
+/**
+  * @brief  Tamper event callback function
+  * @param  RTC handle
+  * @retval None
+  */
+void HAL_RTCEx_Tamper1EventCallback(RTC_HandleTypeDef *hrtc)
+{
+	TamperFlag = 1;
 }
 /* USER CODE END 4 */
 
