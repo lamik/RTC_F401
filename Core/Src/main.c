@@ -57,9 +57,11 @@
 /* USER CODE BEGIN PV */
 RTC_TimeTypeDef RtcTime;
 RTC_DateTypeDef RtcDate;
+RTC_TimeTypeDef RtcTimeTimeStamp;
+RTC_DateTypeDef RtcDateTimeStamp;
 uint16_t Milliseconds;
 
-uint8_t CompareMilliseconds;
+uint8_t CompareSeconds;
 uint8_t CompareDate;
 
 uint8_t Message[64];
@@ -134,20 +136,28 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
-//	  Milliseconds = ((RtcTime.SecondFraction-RtcTime.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
-//	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
+	  HAL_RTC_GetTime(&hrtc, &RtcTime, RTC_FORMAT_BIN);
+	  Milliseconds = ((RtcTime.SecondFraction-RtcTime.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
+	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
 
-//	  if(Milliseconds != CompareMilliseconds)
-//	  {
-//		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds, Milliseconds);
-//		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
-//		  CompareMilliseconds = Milliseconds;
-//	  }
+	  if(RtcTime.Seconds != CompareSeconds)
+	  {
+		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds, Milliseconds);
+		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+		  CompareSeconds = RtcTime.Seconds;
+	  }
 
 	  if(TamperFlag == 1)
 	  {
-		  MessageLen = sprintf((char*)Message, "Tamper detected! Backup Registers cleared:\n\r");
+
+		  HAL_RTCEx_GetTimeStamp(&hrtc, &RtcTimeTimeStamp, &RtcDateTimeStamp, RTC_FORMAT_BIN);
+		  Milliseconds = ((RtcTime.SecondFraction-RtcTimeTimeStamp.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
+
+		  MessageLen = sprintf((char*)Message, "Tamper detected at Time Stamp %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d!\n\r",RtcDateTimeStamp.Date, RtcDateTimeStamp.Month, RtcDateTimeStamp.Year,
+				  RtcTimeTimeStamp.Hours, RtcTimeTimeStamp.Minutes, RtcTimeTimeStamp.Seconds, Milliseconds);
+		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+
+		  MessageLen = sprintf((char*)Message, "Backup Registers cleared:\n\r");
 		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
 
 		  for(int i = 0; i < BACKUP_COUNT; i++)
