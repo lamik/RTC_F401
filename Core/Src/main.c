@@ -15,7 +15,15 @@
   *                        opensource.org/licenses/BSD-3-Clause
   *
   ******************************************************************************
-  */
+  *
+  *  Created on: 17.02.2019
+  *      Author: Mateusz Salamon
+  *    www.msalamon.pl
+  *
+  *      Website: https://msalamon.pl/a-jak-to-jest-z-tym-rtc-na-stm32f4/
+  *      GitHub:  https://github.com/lamik/RTC_F401
+  *      Contact: mateusz@msalamon.pl
+*/
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
