@@ -44,6 +44,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define BACKUP_COUNT 20
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -58,11 +59,29 @@ RTC_TimeTypeDef RtcTime;
 RTC_DateTypeDef RtcDate;
 uint16_t Milliseconds;
 
-uint8_t CompareMilliseconds;
+RTC_TimeTypeDef RtcTimeStamp;
+RTC_DateTypeDef RtcDateStamp;
+uint16_t MillisecondsStamp;
+
+uint8_t CompareSeconds;
 uint8_t CompareDate;
 
 uint8_t Message[64];
 uint8_t MessageLen;
+
+volatile uint8_t TimeStampFlag;
+
+/* Backup registers table */
+uint32_t aBKPDataReg[BACKUP_COUNT] =
+{
+  RTC_BKP_DR0,  RTC_BKP_DR1,  RTC_BKP_DR2,
+  RTC_BKP_DR3,  RTC_BKP_DR4,  RTC_BKP_DR5,
+  RTC_BKP_DR6,  RTC_BKP_DR7,  RTC_BKP_DR8,
+  RTC_BKP_DR9,  RTC_BKP_DR10, RTC_BKP_DR11,
+  RTC_BKP_DR12, RTC_BKP_DR13, RTC_BKP_DR14,
+  RTC_BKP_DR15, RTC_BKP_DR16, RTC_BKP_DR17,
+  RTC_BKP_DR18, RTC_BKP_DR19
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -75,6 +94,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 void SetRTC(void);
 void BackupDateToBR(void);
+void RTC_TimeStampSet(void);
 /* USER CODE END 0 */
 
 /**
@@ -109,7 +129,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
-
+  RTC_TimeStampSet();
   /* USER CODE END 2 */
  
  
@@ -122,11 +142,20 @@ int main(void)
 	  Milliseconds = ((RtcTime.SecondFraction-RtcTime.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
 	  HAL_RTC_GetDate(&hrtc, &RtcDate, RTC_FORMAT_BIN);
 
-	  if(Milliseconds != CompareMilliseconds)
+	  if(RtcTime.Seconds != CompareSeconds)
 	  {
 		  MessageLen = sprintf((char*)Message, "Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDate.Date, RtcDate.Month, RtcDate.Year, RtcTime.Hours, RtcTime.Minutes, RtcTime.Seconds, Milliseconds);
 		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
-		  CompareMilliseconds = Milliseconds;
+		  CompareSeconds = RtcTime.Seconds;
+	  }
+
+	  if(TimeStampFlag == 1)
+	  {
+		  MessageLen = sprintf((char*)Message, "TimeStamp! Date: %02d.%02d.20%02d Time: %02d:%02d:%02d:%02d\n\r", RtcDateStamp.Date, RtcDateStamp.Month,
+				  RtcDateStamp.Year, RtcTimeStamp.Hours, RtcTimeStamp.Minutes, RtcTimeStamp.Seconds, MillisecondsStamp);
+		  HAL_UART_Transmit(&huart2, Message, MessageLen, 100);
+
+		  TimeStampFlag = 0;
 	  }
 
 	  if(GPIO_PIN_RESET == HAL_GPIO_ReadPin(TEST_GPIO_Port, TEST_Pin))
@@ -227,6 +256,28 @@ void SetRTC(void)
 	}
 
 	BackupDateToBR();
+}
+
+void RTC_TimeStampSet(void)
+{
+	/** Enable the TimeStamp
+	*/
+	if (HAL_RTCEx_SetTimeStamp_IT(&hrtc, RTC_TIMESTAMPEDGE_FALLING, RTC_TIMESTAMPPIN_DEFAULT) != HAL_OK)
+	{
+	Error_Handler();
+	}
+}
+/**
+  * @brief  TimeStamp callback.
+  * @param  hrtc pointer to a RTC_HandleTypeDef structure that contains
+  *                the configuration information for RTC.
+  * @retval None
+  */
+void HAL_RTCEx_TimeStampEventCallback(RTC_HandleTypeDef *hrtc)
+{
+  HAL_RTCEx_GetTimeStamp(hrtc, &RtcTimeStamp, &RtcDateStamp, RTC_FORMAT_BIN);
+  MillisecondsStamp = ((RtcTime.SecondFraction-RtcTimeStamp.SubSeconds)/((float)RtcTime.SecondFraction+1) * 100);
+	TimeStampFlag = 1;
 }
 /* USER CODE END 4 */
 
